@@ -1,0 +1,208 @@
+---
+// src/pages/author/[id].astro
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import { UserHeaderCard } from '../../components/UserHeaderCard';
+import { PostCard } from '../../components/PostCard';
+import { SearchBar } from '../../components/SearchBar';
+import { CustomPagination } from '../../components/Pagination';
+import { Button } from '@heroui/button';
+
+export async function getStaticPaths() {
+  const authors = await getCollection('authors');
+  return authors.map(author => ({
+    // 移除.mdx后缀
+    params: { id: author.id.replace('.mdx', '') },
+    props: { author },
+  }));
+}
+
+const { author } = Astro.props;
+const posts = await getCollection('posts', post => 
+  post.data.authorId.replace('.mdx', '') === author.id.replace('.mdx', '')
+);
+
+const postsPerPage = 9;
+const currentPage = +(Astro.url.searchParams.get('page') || '1');
+const totalPages = Math.ceil(posts.length / postsPerPage);
+
+const handlePageChange = (page: number) => {
+  const url = new URL(Astro.url);
+  url.searchParams.set('page', page.toString());
+  window.location.href = url.toString();
+};
+
+export const prerender = true;
+---
+
+<Layout 
+  title={`${author.data.name} - Author Profile`}
+  description={`Browse posts and articles by ${author.data.name}`}
+>
+  <div class="min-h-screen bg-gradient-to-b from-background to-background/95">
+    <!-- 顶部作者信息卡片 -->
+    <div class="w-full animate-fade-in">
+      <UserHeaderCard
+        client:visible
+        {...author.data}
+        isPreview={false}
+      />
+    </div>
+
+    <!-- 主要内容区域 -->
+    <main class="
+      max-w-7xl 
+      mx-auto 
+      px-4 sm:px-6 lg:px-8 
+      py-8 sm:py-12
+      space-y-8 sm:space-y-12
+    ">
+      <!-- 搜索和统计信息 -->
+      <div class="
+        flex flex-col sm:flex-row 
+        items-center 
+        justify-between 
+        gap-4
+        animate-slide-up
+      ">
+        <div class="w-full sm:w-96">
+          <SearchBar 
+            client:visible 
+            placeholder={`Search ${author.data.name}'s posts...`}
+          />
+        </div>
+        
+        <div class="
+          text-sm 
+          text-default-600 
+          dark:text-default-400
+          font-medium
+        ">
+          {posts.length} 帖子发布
+        </div>
+      </div>
+
+      <!-- 文章网格 -->
+      <div class="
+        grid 
+        grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 
+        gap-6 sm:gap-8
+        animate-fade-in
+      ">
+        {posts
+          .slice((currentPage - 1) * postsPerPage, currentPage * postsPerPage)
+          .map((post, index) => (
+            <div 
+              class="transform transition-all duration-300 hover:-translate-y-1"
+              style={`animation-delay: ${index * 100}ms`}
+            >
+              <PostCard
+                client:visible
+                title={post.data.title}
+                date={post.data.date}
+                image={post.data.image}
+                alt={post.data.alt}
+                href={`/posts/${post.slug.replace('.mdx', '')}`}
+              />
+            </div>
+          ))
+        }
+      </div>
+
+      <!-- 空状态 -->
+      {posts.length === 0 && (
+        <div class="
+          flex flex-col 
+          items-center 
+          justify-center 
+          py-12
+          text-center
+          animate-fade-in
+        ">
+          <div class="
+            text-4xl 
+            mb-4 
+            text-default-300
+            dark:text-default-600
+          ">
+            📝
+          </div>
+          <h3 class="
+            text-xl 
+            font-semibold 
+            text-default-900
+            dark:text-default-100
+            mb-2
+          ">
+            还没有帖子
+          </h3>
+          <p class="
+            text-default-600
+            dark:text-default-400
+            max-w-md
+            mb-6
+          ">
+            {author.data.name} 还没有发布什么帖子 
+            请稍后查看新内容。
+          </p>
+          <Button
+            color="primary"
+            variant="flat"
+            href="/"
+            size="lg"
+          >
+            回去
+          </Button>
+        </div>
+      )}
+
+      <!-- 分页控件 -->
+      {posts.length > postsPerPage && (
+        <div class="
+          pt-8 
+          border-t 
+          border-default-200 
+          dark:border-default-800
+          animate-fade-in
+        ">
+          <CustomPagination
+            client:visible
+            total={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+          />
+        </div>
+      )}
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

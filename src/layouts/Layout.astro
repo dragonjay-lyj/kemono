@@ -1,22 +1,124 @@
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
-</html>
+---
+// src/layouts/Layout.astro
+import { ViewTransitions } from 'astro:transitions';
+import {HeroUIProvider} from "@heroui/system";
+import "../styles/style.css";
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "kemono",
+  description = "发现好看的图片"
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN" class="scroll-smooth dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <!-- Meta tags -->
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#18181b" />
+    <meta name="color-scheme" content="dark light" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url} />
+    
+    <!-- Title -->
+    <title>{title}</title>
+    
+    <!-- Astro View Transitions -->
+    <ViewTransitions />
+
+    <!-- Preload Fonts -->
+    <link
+      rel="preload"
+      href="/fonts/inter-var.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    
+    <!-- Inline Styles -->
+    <style is:inline>
+      @font-face {
+        font-family: 'Inter var';
+        font-weight: 100 900;
+        font-display: swap;
+        font-style: normal;
+        font-named-instance: 'Regular';
+        src: url('/fonts/inter-var.woff2') format('woff2');
+      }
+
+      ::selection {
+        background-color: rgba(99, 102, 241, 0.2);
+      }
+
+      .dark ::selection {
+        background-color: rgba(99, 102, 241, 0.3);
+      }
+    </style>
+    <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"
+    />
+  </head>
+  <HeroUIProvider client:visible>
+  <body class="
+    min-h-screen
+    bg-gradient-to-b from-background to-background/95
+    dark:from-background dark:to-background/98
+    text-foreground
+    antialiased
+    selection:bg-primary-500/20
+    overflow-x-hidden
+  ">
+
+    <!-- Main Content -->
+    <div class="
+      relative
+      w-full
+      transition-all duration-300
+      animate-fade-in
+    ">
+      <slot />
+    </div>
+
+    <!-- Scroll Progress -->
+    <div class="
+      fixed top-0 left-0
+      w-full h-1
+      bg-transparent
+      z-50
+    ">
+      <div id="scroll-progress" class="
+        h-full
+        bg-primary-500/50
+        backdrop-blur-sm
+        w-0
+        transition-all duration-150
+      "></div>
+    </div>
+  </ThemeProvider>
+  <script type="module">
+    import { Fancybox } from "https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.esm.js";
+
+    Fancybox.bind('[data-fancybox="gallery"]', {
+      //
+    });    
+  </script>
+  </body>
+</html>
