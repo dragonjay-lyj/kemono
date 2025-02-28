@@ -14,7 +14,7 @@ import sitemap from '@astrojs/sitemap';
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx(), tailwind(), sitemap()],
-  site: 'https://stargazers.club',
+  site: 'https://kemono.dragonjay.top',
   output: 'server',
   adapter: vercel()
 });

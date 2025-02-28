@@ -7,13 +7,14 @@ const authors = await getCollection('authors');
 const posts = await getCollection('posts');
   return rss({
     site: context.site,
+    title: 'Kemono',
+    description: 'A Kemono website',
     items: posts.map((post) => ({
         title: post.data.title,
         pubDate: post.data.date,
         description: post.data.alt,
-        link: `/posts/${post.id}/`,
+        link: `/posts/${post.id.replace(/\.mdx$/, '')}`,
         content: post.data.content,
-        author: authors.find((author) => author.id === post.data.authorId).data.name,
       })),
   });
 }
