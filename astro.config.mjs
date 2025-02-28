@@ -9,9 +9,12 @@ import vercel from '@astrojs/vercel';
 
 import tailwind from '@astrojs/tailwind';
 
+import sitemap from '@astrojs/sitemap';
+
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx(),tailwind()],
+  integrations: [react(), mdx(), tailwind(), sitemap()],
+  site: 'https://stargazers.club',
   output: 'server',
   adapter: vercel()
 });
