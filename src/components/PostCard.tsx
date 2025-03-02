@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, CardBody, CardFooter, Button, Chip, Tooltip, Image } from "@heroui/react";
+import { Card, CardBody, Button, Chip, Tooltip, Image } from "@heroui/react";
 import { motion } from "framer-motion";
 import type { CollectionEntry } from "astro:content";
 
