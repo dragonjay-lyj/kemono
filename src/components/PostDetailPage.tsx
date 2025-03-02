@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import type { CollectionEntry } from "astro:content";
 import { format } from "date-fns";
+import TwikooComments from "./TwikooComments";
 
 interface PostDetailPageProps {
   post: CollectionEntry<"post">;
@@ -625,6 +626,7 @@ export const PostDetailPage: React.FC<PostDetailPageProps> = ({
                       </Button>
                     </div>
                   )}
+                  <TwikooComments envId="https://superlative-valkyrie-233b02.netlify.app/.netlify/functions/twikoo" path={`/post/${post.slug}`} />
                 </CardBody>
               </Card>
             </motion.div>
