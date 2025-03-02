@@ -1,196 +1,172 @@
 ---
-import { getCollection } from 'astro:content';
-import Layout from '../layouts/Layout.astro';
-import { UserHeaderCard } from '../components/UserHeaderCard';
-import { SearchBar } from '../components/SearchBar';
-import { CustomPagination } from '../components/Pagination';
-import { Link, Button } from '@heroui/react';
+import { getCollection } from "astro:content";
+import Layout from "../layouts/Layout.astro";
+import PostCard from "../components/PostCard";
 
-const allAuthors = await getCollection('authors');
-const authorsPerPage = 9;
-const currentPage = +(Astro.url.searchParams.get('page') || '1');
-const shuffledAuthors = allAuthors.sort(() => Math.random() - 0.5);
+// 获取所有非草稿的博客文章并按发布日期排序
+const posts = await getCollection("post", ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+}).then(posts => 
+  posts.sort((a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime())
+);
 
-const handlePageChange = (page: number) => {
-  const url = new URL(Astro.url);
-  url.searchParams.set('page', page.toString());
-  window.location.href = url.toString();
-};
+// 获取所有作者
+const authors = await getCollection("authors");
+
+// 获取最新的6篇文章
+const recentPosts = posts.slice(0, 6);
+
+// 获取所有标签并计算数量
+const allTags = posts.flatMap(post => post.data.tags || []);
+const tagCounts = allTags.reduce((acc, tag) => {
+  acc[tag] = (acc[tag] || 0) + 1;
+  return acc;
+}, {} as Record<string, number>);
+
+// 获取前10个最常用的标签
+const popularTags = Object.entries(tagCounts)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 10)
+  .map(([tag]) => tag);
 ---
 
-<Layout 
-  title="Featured Authors"
-  description="Discover amazing content creators and their stories"
->
-  <main class="min-h-screen bg-gradient-to-b from-background to-background/95">
-    <!-- Hero Section -->
-    <div class="
-      relative 
-      py-16 sm:py-24 
-      overflow-hidden
-      bg-gradient-to-b from-primary-500/10 to-transparent
-    ">
-      <div class="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center space-y-6 animate-fade-in">
-          <h1 class="
-            text-4xl sm:text-5xl lg:text-6xl
-            font-extrabold
-            text-transparent bg-clip-text bg-gradient-to-r 
-            from-primary-500 to-secondary-500
-            tracking-tight
-          ">
-            kemono
+<Layout title="Creator Hub - Home">
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- 英雄区域 -->
+    <section class="relative bg-gradient-to-r from-primary-600 to-primary-800 text-white py-20">
+      <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute inset-0 bg-black opacity-30"></div>
+        <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/50 to-transparent"></div>
+      </div>
+      <div class="container mx-auto px-4 relative z-10">
+        <div class="max-w-3xl mx-auto text-center">
+          <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            发现惊人的创造者和他们的作品
           </h1>
-          
-          <p class="
-            max-w-2xl 
-            mx-auto 
-            text-lg sm:text-xl 
-            text-default-600
-            dark:text-default-400
-          ">
-            发现惊人的内容创作者和他们独特的观点
+          <p class="text-xl md:text-2xl mb-8 text-white/90">
+            探索有才华的艺术家和创作者的创意内容策划集合
           </p>
+          <div class="flex flex-wrap justify-center gap-4">
+            <a 
+              href="#recent-posts" 
+              class="px-6 py-3 bg-white text-primary-700 font-medium rounded-full hover:bg-gray-100 transition-colors duration-300"
+            >
+              浏览最近的文章
+            </a>
+            <a 
+              href="#creators" 
+              class="px-6 py-3 bg-primary-700 text-white font-medium rounded-full border border-white/20 hover:bg-primary-800 transition-colors duration-300"
+            >
+              发现创造者
+            </a>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <!-- Search and Stats -->
-      <div class="
-        flex flex-col sm:flex-row 
-        items-center 
-        justify-between 
-        gap-4 
-        mb-12
-        animate-slide-up
-      ">
-        <div class="w-full sm:w-96">
-          <SearchBar 
-            client:visible 
-            placeholder="Search authors..."
-          />
+    <!-- 最新帖子 -->
+    <section id="recent-posts" class="py-16">
+      <div class="container mx-auto px-4">
+        <div class="flex justify-between items-center mb-10">
+          <h2 class="text-3xl font-bold text-gray-800 dark:text-white">Recent Posts</h2>
+          <a 
+            href="/post" 
+            class="text-primary-600 dark:text-primary-400 hover:underline flex items-center"
+          >
+            查看所有帖子
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
+          </a>
         </div>
         
-        <div class="text-sm text-default-600 dark:text-default-400">
-          展示 {shuffledAuthors.length} 作者
-        </div>
-      </div>
-
-      <!-- Authors Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-        {shuffledAuthors
-          .slice((currentPage - 1) * authorsPerPage, currentPage * authorsPerPage)
-          .map((author, index) => (
-            <a 
-              href={`/author/${author.id.replace('.mdx', '')}`}
-              class="
-                block
-                transform 
-                transition-all duration-300 
-                hover:-translate-y-1 
-                hover:shadow-lg
-                rounded-xl
-                animate-fade-in
-                focus:outline-none
-                focus:ring-2
-                focus:ring-primary-500
-                focus:ring-offset-2
-              "
-              style={`animation-delay: ${index * 100}ms`}
-            >
-              <UserHeaderCard
-                client:visible
-                {...author.data}
-                isPreview={true}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {recentPosts.map(post => (
+            <div class="transform transition-transform duration-300 hover:-translate-y-1">
+              <PostCard 
+                post={post} 
+                href={`/post/${post.slug}`} 
+                client:visible 
               />
-            </a>
-          ))
-        }
+            </div>
+          ))}
+        </div>
       </div>
-      
+    </section>
 
-      <!-- Empty State -->
-      {shuffledAuthors.length === 0 && (
-        <div class="
-          text-center 
-          py-16
-          animate-fade-in
-        ">
-          <div class="text-6xl mb-4">🤔</div>
-          <h3 class="text-xl font-semibold mb-2">No authors found</h3>
-          <p class="text-default-600 dark:text-default-400 mb-8">
-            Try adjusting your search criteria
-          </p>
-          <Button
-            color="primary"
-            variant="flat"
-            size="lg"
-            onClick={() => window.location.reload()}
+    <!-- 创作者区域 -->
+    <section id="creators" class="py-16 bg-gray-100 dark:bg-gray-800">
+      <div class="container mx-auto px-4">
+        <div class="flex justify-between items-center mb-10">
+          <h2 class="text-3xl font-bold text-gray-800 dark:text-white">特色的创造者</h2>
+          <a 
+            href="/authors" 
+            class="text-primary-600 dark:text-primary-400 hover:underline flex items-center"
           >
-            Reset Search
-          </Button>
+            查看所有创建者
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
+          </a>
         </div>
-      )}
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {authors.slice(0, 8).map(author => (
+            <a 
+              href={`/authors/${author.slug}`}
+              data-astro-prefetch="false"
+              class="bg-white dark:bg-gray-700 rounded-xl shadow-md overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg group"
+            >
+              <div class="relative h-40 overflow-hidden">
+                <img 
+                  src={author.data.banner} 
+                  alt={`${author.data.name}'s banner`} 
+                  class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent"></div>
+              </div>
+              <div class="relative p-6 text-center -mt-16">
+                <div class="inline-block relative">
+                  <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-white dark:border-gray-700 mx-auto shadow-lg">
+                    <img 
+                      src={author.data.avatar} 
+                      alt={`${author.data.name}'s avatar`} 
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+                <h3 class="mt-4 text-xl font-bold text-gray-800 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                  {author.data.name}
+                </h3>
+                <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300">
+                    {author.data.platform}
+                  </span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
 
-      <!-- Pagination -->
-      {shuffledAuthors.length > authorsPerPage && (
-        <div class="
-          mt-12 
-          pt-8 
-          border-t 
-          border-default-200 
-          dark:border-default-800
-          animate-fade-in
-        ">
-          <CustomPagination
-            client:visible
-            total={Math.ceil(allAuthors.length / authorsPerPage)}
-            page={currentPage}
-            onChange={handlePageChange}
-          />
+    <!-- 标签区域 -->
+    <section class="py-16">
+      <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-gray-800 dark:text-white mb-10">受欢迎的标签</h2>
+        
+        <div class="flex flex-wrap gap-3 justify-center">
+          {popularTags.map(tag => (
+            <a 
+              href={`/tags/${tag}`}
+              class="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full shadow-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-300 text-sm font-medium"
+            >
+              #{tag}
+            </a>
+          ))}
         </div>
-      )}
-    </div>
+      </div>
+    </section>
+
   </main>
 </Layout>
-
-<style>
-  .bg-grid-pattern {
-    background-image: 
-      linear-gradient(to right, rgba(99, 102, 241, 0.1) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(99, 102, 241, 0.1) 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-  }
-
-  .animate-slide-up {
-    animation: slideUp 0.5s ease-out forwards;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-</style>

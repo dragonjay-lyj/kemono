@@ -1,0 +1,169 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import AuthorPage from "../../components/AuthorPage";
+import { Image } from "@heroui/image";
+import { Spinner } from "@heroui/spinner";
+
+export async function getStaticPaths() {
+  const authors = await getCollection("authors");
+  
+  return authors.map(author => ({
+    params: { authorSlug: author.slug },
+    props: { authorSlug: author.slug },
+  }));
+}
+
+// 从URL参数获取作者slug
+const { authorSlug } = Astro.props;
+
+// 获取作者信息
+const author = await getEntry("authors", authorSlug);
+if (!author) {
+  return Astro.redirect("/404");
+}
+
+// 获取URL参数
+const url = new URL(Astro.request.url);
+const searchParams = url.searchParams;
+const query = searchParams.get("q") || "";
+const tag = searchParams.get("tag") || "";
+const page = parseInt(searchParams.get("page") || "1");
+const perPage = 12; // 每页显示的帖子数量
+
+// 获取该作者的所有文章
+const allPosts = await getCollection("post", ({ data }) => {
+  return data.author === authorSlug && (import.meta.env.PROD ? !data.draft : true);
+}).then(posts => 
+  posts.sort((a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime())
+);
+
+// 如果有搜索查询或标签，过滤帖子
+let filteredPosts = allPosts;
+if (query) {
+  filteredPosts = allPosts.filter(post => 
+    post.data.title.toLowerCase().includes(query.toLowerCase()) ||
+    post.data.description.toLowerCase().includes(query.toLowerCase())
+  );
+} else if (tag) {
+  filteredPosts = allPosts.filter(post => 
+    post.data.tags?.includes(tag)
+  );
+}
+
+// 计算总帖子数和总页数
+const totalPosts = allPosts.length;
+const totalFilteredPosts = filteredPosts.length;
+const totalPages = Math.ceil(totalFilteredPosts / perPage);
+
+// 验证页码是否有效
+if (page < 1 || (totalPages > 0 && page > totalPages)) {
+  return Astro.redirect(`/authors/${authorSlug}?page=1${query ? `&q=${query}` : ''}${tag ? `&tag=${tag}` : ''}`);
+}
+
+// 构建基础URL（不包含查询参数）
+const baseUrl = `${Astro.url.origin}${Astro.url.pathname}`;
+
+// 构建规范URL（包含当前查询参数）
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin);
+if (query) canonicalUrl.searchParams.set("q", query);
+if (tag) canonicalUrl.searchParams.set("tag", tag);
+if (page > 1) canonicalUrl.searchParams.set("page", page.toString());
+
+// 构建分页URL
+const prevPageUrl = page > 1 
+  ? new URL(`${Astro.url.pathname}?page=${page-1}${query ? `&q=${query}` : ''}${tag ? `&tag=${tag}` : ''}`, Astro.url.origin)
+  : null;
+  
+const nextPageUrl = page < totalPages 
+  ? new URL(`${Astro.url.pathname}?page=${page+1}${query ? `&q=${query}` : ''}${tag ? `&tag=${tag}` : ''}`, Astro.url.origin)
+  : null;
+
+// 准备页面元数据
+const title = `${author.data.name} - Creator Profile${tag ? ` | Tag: ${tag}` : ''}${query ? ` | Search: ${query}` : ''}${page > 1 ? ` | Page ${page}` : ''}`;
+const description = author.data.bio || `Explore ${author.data.name}'s content and creations. ${totalPosts} posts available.`;
+
+export const prerender = true;
+---
+
+<Layout 
+  title={title}
+>
+
+  <!-- Loading fallback for client:load component -->
+  <div id="author-page-loading" class="min-h-screen flex flex-col items-center justify-center">
+    <div class="w-16 h-16 mb-4">
+      <Spinner 
+        size="lg" 
+        color="primary" 
+        labelColor="primary"
+        client:visible
+      />
+    </div>
+    <p class="text-gray-600 dark:text-gray-400 animate-pulse">Loading creator profile...</p>
+    
+    <!-- Preload author avatar for faster rendering -->
+    <div class="hidden">
+      <Image src={author.data.avatar} width={1} height={1} alt="" client:visible />
+      <Image src={author.data.banner} width={1} height={1} alt="" client:visible />
+    </div>
+  </div>
+
+  <script define:vars={{ totalFilteredPosts, query, tag }}>
+    // Enhance page transitions
+    document.addEventListener('astro:page-load', () => {
+      // Hide loading screen when component is loaded
+      document.getElementById('author-page-loading')?.classList.add('hidden');
+      
+      // Scroll to top on page load
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Add page view analytics
+      if (window.gtag) {
+        window.gtag('event', 'view_author_page', {
+          author_name: document.title.split(' - ')[0],
+          filtered_posts: totalFilteredPosts,
+          has_search: !!query,
+          has_tag: !!tag
+        });
+      }
+    });
+  </script>
+
+  <AuthorPage 
+    author={author} 
+    posts={filteredPosts} 
+    totalPosts={totalPosts}
+    currentPage={page}
+    searchQuery={query}
+    tagFilter={tag}
+    baseUrl={baseUrl}
+    client:visible
+    transition:animate="slide"
+  />
+</Layout>
+
+<style>
+  /* Add smooth page transitions */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  #author-page-loading {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  /* Optimize for print */
+  @media print {
+    nav, footer, button {
+      display: none !important;
+    }
+    
+    main {
+      width: 100% !important;
+      max-width: none !important;
+      padding: 0 !important;
+    }
+  }
+</style>

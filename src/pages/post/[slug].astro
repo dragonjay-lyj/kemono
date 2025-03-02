@@ -1,0 +1,231 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import PostDetailPage from "../../components/PostDetailPage";
+import Layout from "../../layouts/Layout.astro";
+import { Image } from "@heroui/image";
+import { Spinner } from "@heroui/spinner";
+import { format } from "date-fns";
+
+// 获取URL参数
+const { slug } = Astro.params;
+
+// 获取帖子信息
+const post = await getEntry("post", slug);
+if (!post) {
+  return Astro.redirect("/404");
+}
+
+// 获取作者信息
+const author = await getEntry("authors", post.data.author);
+if (!author) {
+  return Astro.redirect("/404");
+}
+
+// 获取前一篇和后一篇帖子
+const allPosts = await getCollection("post", ({ data }) => {
+  return data.author === post.data.author && (import.meta.env.PROD ? !data.draft : true);
+}).then(posts => 
+  posts.sort((a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime())
+);
+
+const currentIndex = allPosts.findIndex(p => p.slug === slug);
+const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : undefined;
+const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : undefined;
+
+// 渲染帖子内容
+const { Content } = await post.render();
+const contentResult = await Astro.slots.render('default');
+
+// 提取帖子元数据用于SEO和结构化数据
+const { title, description, publishDate, coverImage, tags, platform } = post.data;
+const formattedDate = format(new Date(publishDate), "yyyy-MM-dd'T'HH:mm:ssXXX");
+const readableDate = format(new Date(publishDate), "MMMM d, yyyy");
+
+// 构建规范URL
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
+
+// 构建相关帖子链接
+const prevPostUrl = prevPost ? new URL(`/post/${prevPost.slug}`, Astro.url.origin).toString() : null;
+const nextPostUrl = nextPost ? new URL(`/post/${nextPost.slug}`, Astro.url.origin).toString() : null;
+const authorUrl = new URL(`/authors/${author.slug}`, Astro.url.origin).toString();
+
+// 准备页面元数据
+const pageTitle = `${title} - ${author.data.name}${platform ? ` | ${platform}` : ''}`;
+const pageDescription = description || `${title} by ${author.data.name}. Published on ${readableDate}.`;
+
+// 准备结构化数据
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": title,
+  "description": pageDescription,
+  "image": coverImage,
+  "datePublished": formattedDate,
+  "author": {
+    "@type": "Person",
+    "name": author.data.name,
+    "url": authorUrl
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Creator Platform",
+    "logo": {
+      "@type": "ImageObject",
+      "url": new URL("/logo.png", Astro.url.origin).toString()
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": canonicalUrl
+  }
+};
+---
+
+<Layout 
+  title={pageTitle}
+>
+
+  <!-- Structured Data for SEO -->
+  <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+
+  <!-- Loading fallback for client:load component -->
+  <div id="post-loading" class="min-h-screen flex flex-col items-center justify-center">
+    <div class="w-16 h-16 mb-4">
+      <Spinner 
+        size="lg" 
+        color="primary" 
+        labelColor="primary"
+        client:visible
+      />
+    </div>
+    <p class="text-gray-600 dark:text-gray-400 animate-pulse">Loading content...</p>
+    <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">{title}</p>
+    
+    <!-- Preload critical images for faster rendering -->
+    <div class="hidden">
+      <Image src={coverImage} width={1} height={1} alt="" client:visible />
+      <Image src={author.data.avatar} width={1} height={1} alt="" client:visible />
+    </div>
+  </div>
+
+  <script define:vars={{ title, author: author.data.name, tags }}>
+    // Enhance page transitions and tracking
+    document.addEventListener('astro:page-load', () => {
+      // Hide loading screen when component is loaded
+      document.getElementById('post-loading')?.classList.add('hidden');
+      
+      // Scroll to top on page load
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Add page view analytics
+      if (window.gtag) {
+        window.gtag('event', 'view_item', {
+          content_type: 'post',
+          content_id: window.location.pathname,
+          content_name: title,
+          content_author: author,
+          content_tags: tags
+        });
+      }
+      
+      // Register intersection observers for read progress tracking
+      const sections = document.querySelectorAll('h2, h3');
+      if (sections.length > 0 && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const id = entry.target.id;
+              if (id && window.gtag) {
+                window.gtag('event', 'section_view', {
+                  section_id: id,
+                  content_id: window.location.pathname
+                });
+              }
+            }
+          });
+        }, { threshold: 0.5 });
+        
+        sections.forEach(section => observer.observe(section));
+      }
+    });
+    
+    // Handle keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      // Left arrow for previous post
+      if (e.key === 'ArrowLeft') {
+        const prevLink = document.querySelector('a[rel="prev"]');
+        if (prevLink) prevLink.click();
+      }
+      // Right arrow for next post
+      if (e.key === 'ArrowRight') {
+        const nextLink = document.querySelector('a[rel="next"]');
+        if (nextLink) nextLink.click();
+      }
+    });
+  </script>
+
+  <PostDetailPage 
+    post={post} 
+    author={author} 
+    prevPost={prevPost} 
+    nextPost={nextPost} 
+    content={contentResult}
+    client:visible 
+    transition:animate="slide"
+  >
+    <Content />
+  </PostDetailPage>
+</Layout>
+
+<style>
+  /* Add smooth page transitions */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  #post-loading {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  /* Optimize for print */
+  @media print {
+    nav, footer, button, .comments-section, .navigation-buttons {
+      display: none !important;
+    }
+    
+    main {
+      width: 100% !important;
+      max-width: none !important;
+      padding: 0 !important;
+    }
+    
+    article {
+      page-break-inside: avoid;
+    }
+    
+    img {
+      max-width: 100% !important;
+      page-break-inside: avoid;
+    }
+  }
+  
+  /* Optimize for dark mode */
+  @media (prefers-color-scheme: dark) {
+    #post-loading {
+      background-color: rgb(17, 24, 39);
+    }
+  }
+  
+  /* Add smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Optimize for high contrast mode */
+  @media (forced-colors: active) {
+    a, button {
+      forced-color-adjust: none;
+    }
+  }
+</style>
